@@ -1,12 +1,13 @@
-from libs import oneDataCollection as oneDataCollection
-import cv2
-import os
 import sys
-import numpy as np
-# import unittest   # The test framework
-
+import os
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
+from libs import oneDataCollection as oneDataCollection
+import cv2
+
+
+import numpy as np
+# import unittest   # The test framework
 # import 1-data-collection from libs
 
 # class TestDataCollection(unittest.TestCase):
@@ -263,3 +264,8 @@ def test_padding_keypoints_to_sequence():
     # Call the padding_keypoints_to_sequence function
     oneDataCollection.padding_keypoints_to_sequence(frames_numpy_folder, max_sequence_length)
     assert len(os.listdir(sequence_folder)) > 0
+    
+    
+def test_visualize_data_as_contour():
+    numpy_array  = np.random.rand(50, 50, 3) * 255  # Replace with actual student data
+    assert oneDataCollection.visualize_data_as_contour(numpy_array) is not None

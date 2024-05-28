@@ -4,6 +4,7 @@ import cv2
 import os
 import mediapipe as mp
 import numpy as np
+import matplotlib.pyplot as plt
 
 mp_pose = mp.solutions.pose
 pose = mp_pose.Pose(static_image_mode=True, min_detection_confidence=0.5)
@@ -251,16 +252,28 @@ def mediapipe_pose_estimation_frame(input_frame, output_dir):
     pose = mp_pose.Pose(static_image_mode=True, min_detection_confidence=0.5)
 
     # Convert the frame to numpy array
-    input_frame = cv2.imread(input_frame)
+    input_frame_mat = cv2.imread(input_frame)
 
     # Convert the frame to RGB
-    frame_rgb = cv2.cvtColor(input_frame, cv2.COLOR_BGR2RGB)
+    frame_rgb = cv2.cvtColor(input_frame_mat, cv2.COLOR_BGR2RGB)
 
     # Process the frame with MediaPipe Pose
     results = pose.process(frame_rgb)
 
     # Draw the pose landmarks on the frame
-    annotated_frame = input_frame.copy()
+    annotated_frame = input_frame_mat.copy()
+    if results.pose_landmarks is None:
+        print("No pose landmarks detected in the frame.")
+        error_estimation_folder = os.path.join(
+            os.getcwd(), "test_videos", "error_estimation")
+        if not os.path.exists(error_estimation_folder):
+            os.makedirs(error_estimation_folder)
+        # Save the image to "error_estimation" folder
+        cv2.imwrite(os.path.join(error_estimation_folder,
+                    os.path.basename(input_frame)), input_frame_mat)
+        pose.close()
+        return False
+
     mp.solutions.drawing_utils.draw_landmarks(
         annotated_frame, results.pose_landmarks, mp.solutions.pose.POSE_CONNECTIONS)
     # Save the annotated frame to the output directory
@@ -296,11 +309,13 @@ def mediapipe_pose_estimation_frame_numpy(input_frame, output_dir):
     frame_confidences = []
     if results.pose_landmarks is None:
         print("No pose landmarks detected in the frame.")
-        error_estimation_folder = os.path.join(os.getcwd(), "test_videos", "error_estimation")
+        error_estimation_folder = os.path.join(
+            os.getcwd(), "test_videos", "error_estimation")
         if not os.path.exists(error_estimation_folder):
             os.makedirs(error_estimation_folder)
         # Save the image to "error_estimation" folder
-        cv2.imwrite(os.path.join(error_estimation_folder, os.path.basename(input_frame)), input_frame_mat)
+        cv2.imwrite(os.path.join(error_estimation_folder,
+                    os.path.basename(input_frame)), input_frame_mat)
         pose.close()
         return False
 
@@ -341,8 +356,8 @@ def mediapipe_pose_estimation_consistency(frames_folder, threshold=1.5):
         frame_pose_file = os.path.join(frame_path, "pose_numpy.npy")
 
         if not os.path.exists(frame_pose_file):
-            print(f"Error: Pose landmarks file {
-                  frame_pose_file} does not exist.")
+            print(
+                f"Error: Pose landmarks file {frame_pose_file} does not exist.")
             key_points.append(None)
             continue
 
@@ -356,7 +371,8 @@ def mediapipe_pose_estimation_consistency(frames_folder, threshold=1.5):
         frame_diff = np.linalg.norm(key_points[i] - key_points[i-1])
 
         if np.any(frame_diff > threshold):
-            print(f"Inconsistent keypoints detected between frame {i-1} and {i}")
+            print(
+                f"Inconsistent keypoints detected between frame {i-1} and {i}")
             current_keypoints = key_points[i]
             print(f"Key points in frame {i-1}: {key_points[i-1]}")
             # convert numpy array to list
@@ -379,20 +395,24 @@ def mediapipe_pose_estimation_consistency(frames_folder, threshold=1.5):
                 image_height, image_width, _ = current_frame_math.shape
                 x = int(x * image_width)
                 y = int(y * image_height)
-                cv2.circle(current_frame_math, (int(x), int(y)), 5, (0, 0, 255), -1)
+                cv2.circle(current_frame_math,
+                           (int(x), int(y)), 5, (0, 0, 255), -1)
 
                 x, y, _ = previous_keypoint
                 x = int(x * image_width)
                 y = int(y * image_height)
-                cv2.circle(current_frame_math, (int(x), int(y)), 5, (0, 255, 0), -1)
+                cv2.circle(current_frame_math,
+                           (int(x), int(y)), 5, (0, 255, 0), -1)
             # round the frame diff to 2 decimal places
             frame_diff = round(frame_diff, 2)
             # draw score on the frame
-            cv2.putText(current_frame_math, f"Diff: {frame_diff}", (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 0, 0), 2)
+            cv2.putText(current_frame_math, f"Diff: {frame_diff}", (
+                10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 0, 0), 2)
             error_frame_path = os.path.join(parent_folder, "pose_error")
             if not os.path.exists(error_frame_path):
                 os.makedirs(error_frame_path)
-            frame_error_path = os.path.join(error_frame_path, f"{current_frame_name}_{previous_frame_name}.jpg")
+            frame_error_path = os.path.join(
+                error_frame_path, f"{current_frame_name}_{previous_frame_name}.jpg")
             cv2.imwrite(frame_error_path, current_frame_math)
             return False
     print("Consistent keypoints detected in all frames")
@@ -405,31 +425,72 @@ def normalize_keypoints(keypoints):
     normalized_keypoints = (keypoints - min_val) / (max_val - min_val)
     return normalized_keypoints
 
+
 def padding_keypoints_to_sequence(frames_numpy_folder, max_sequence_length):
     list_frame_folders = os.listdir(frames_numpy_folder)
     padding_keypoints = []
     sequence_keypoints = []
-    sequence_folder = os.path.join(os.path.dirname(frames_numpy_folder), "mediapipe_pose_estimation_sequence")
+    sequence_folder = os.path.join(os.path.dirname(
+        frames_numpy_folder), "mediapipe_pose_estimation_sequence")
     if not os.path.exists(sequence_folder):
         os.makedirs(sequence_folder)
-        
+
     for i in range(len(list_frame_folders)):
         if i == 1199:
             print("debug")
         # copy each max_sequence_length keypoints to padding_keypoints
         folder_name = f"frame_{str(i).zfill(2)}"
-        keypoints = np.load(os.path.join(frames_numpy_folder, folder_name, "pose_numpy.npy"))
+        keypoints = np.load(os.path.join(
+            frames_numpy_folder, folder_name, "pose_numpy.npy"))
         sequence_keypoints.append(keypoints)
         if i != 0 and i % (max_sequence_length - 1) == 0:
             padding_keypoints.append(sequence_keypoints)
             sequence_keypoints_numpy = np.array(sequence_keypoints)
-            np.save(os.path.join(sequence_folder, f"{folder_name}.npy"), sequence_keypoints_numpy)
+            np.save(os.path.join(sequence_folder,
+                    f"{folder_name}.npy"), sequence_keypoints_numpy)
             sequence_keypoints = []
-    
+
     # save the padding keypoints to numpy file
     # padding_keypoints = np.array(padding_keypoints)
     # np.save(os.path.join(os.path.dirname(frames_numpy_folder), "padding_keypoints.npy"), padding_keypoints)
     return padding_keypoints
+
+
+def convert_position_to_color(position):
+    return (position[0] + position[1])/255
+
+
+def generate_contour_data(numpy_array):
+    # generate a numpy array
+    # x = np.linspace(0, 9, 10)
+    # x = array([0., 1., 2., 3., 4., 5., 6., 7., 8., 9.])
+    x_vals = np.linspace(0, numpy_array.shape[0]-1, numpy_array.shape[0])
+    y_vals = np.linspace(0, numpy_array.shape[1]-1, numpy_array.shape[1])
+    z_vals = np.array([[convert_position_to_color(numpy_array[int(i), int(j)]) for i in x_vals] for j in y_vals])
+    return x_vals, y_vals, z_vals
+
+def plot_contour_data(ax, fig, x_vals, y_vals, z_vals, title):
+    cs = ax.contourf(x_vals, y_vals, z_vals, 8)
+    fig.colorbar(cs, ax=ax)
+    contour_labels = ax.contour(x_vals, y_vals, z_vals, 8, colors='black', linewidths=0.5)
+    ax.clabel(contour_labels, inline=True, fontsize=8)
+    ax.set_title(title)
+    ax.set_xlabel('X')
+    ax.set_ylabel('Y')
+    ax.title.set_position([.5, 1.05])
+    
+def visualize_data_as_contour(numpy_array):
+    fig, ax = plt.subplots()
+    x_vals, y_vals, z_vals = generate_contour_data(numpy_array)
+    plot_contour_data(ax, fig, x_vals, y_vals, z_vals, "Contour Plot of Data")
+    # Save the plot to a file
+    plt.savefig("contour_plot.png")
+    # Clear the plot
+    plt.clf()
+    plt.close()
+    
+    return True
+    
 
 
 def yolo_v8_pose_l_pose_estimation(input_video, output_dir):
