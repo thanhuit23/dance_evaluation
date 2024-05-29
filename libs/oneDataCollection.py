@@ -224,7 +224,7 @@ def extract_frames(input_video, output_dir, frame_rate=1):
             # format the frame count to have 2 digits
             frame_count_str = str(frame_count).zfill(2)
             frame_filename = os.path.join(
-                output_dir, f"frame_{frame_count_str}.jpg")
+                output_dir, f"frame_{frame_count}.jpg")
             cv2.imwrite(frame_filename, frame)
         frame_count += 1
     cap.release()
@@ -270,7 +270,7 @@ def mediapipe_pose_estimation_frame(input_frame, output_dir):
             os.makedirs(error_estimation_folder)
         # Save the image to "error_estimation" folder
         cv2.imwrite(os.path.join(error_estimation_folder,
-                    os.path.basename(input_frame)), input_frame_mat)
+                    f'{os.path.basename(os.path.dirname(input_frame))}_{os.path.basename(input_frame)}'), input_frame_mat)
         pose.close()
         return False
 
@@ -466,19 +466,23 @@ def generate_contour_data(numpy_array):
     # x = array([0., 1., 2., 3., 4., 5., 6., 7., 8., 9.])
     x_vals = np.linspace(0, numpy_array.shape[0]-1, numpy_array.shape[0])
     y_vals = np.linspace(0, numpy_array.shape[1]-1, numpy_array.shape[1])
-    z_vals = np.array([[convert_position_to_color(numpy_array[int(i), int(j)]) for i in x_vals] for j in y_vals])
+    z_vals = np.array([[convert_position_to_color(
+        numpy_array[int(i), int(j)]) for i in x_vals] for j in y_vals])
     return x_vals, y_vals, z_vals
+
 
 def plot_contour_data(ax, fig, x_vals, y_vals, z_vals, title):
     cs = ax.contourf(x_vals, y_vals, z_vals, 8)
     fig.colorbar(cs, ax=ax)
-    contour_labels = ax.contour(x_vals, y_vals, z_vals, 8, colors='black', linewidths=0.5)
+    contour_labels = ax.contour(
+        x_vals, y_vals, z_vals, 8, colors='black', linewidths=0.5)
     ax.clabel(contour_labels, inline=True, fontsize=8)
     ax.set_title(title)
     ax.set_xlabel('X')
     ax.set_ylabel('Y')
     ax.title.set_position([.5, 1.05])
-    
+
+
 def visualize_data_as_contour(numpy_array):
     fig, ax = plt.subplots()
     x_vals, y_vals, z_vals = generate_contour_data(numpy_array)
@@ -488,9 +492,8 @@ def visualize_data_as_contour(numpy_array):
     # Clear the plot
     plt.clf()
     plt.close()
-    
+
     return True
-    
 
 
 def yolo_v8_pose_l_pose_estimation(input_video, output_dir):
